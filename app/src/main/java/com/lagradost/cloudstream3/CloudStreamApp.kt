@@ -71,6 +71,9 @@ class CloudStreamApp : Application(), SingletonImageLoader.Factory {
 
     override fun onCreate() {
         super.onCreate()
+        if (BuildConfig.NATIVE_EXTENSION_RESUME) {
+            com.lagradost.cloudstream3.resume.NativeResumeBridge.installHostUi()
+        }
         // If we want to initialize Coil as early as possible, maybe when
         // loading an image or GIF in a splash screen activity.
         // buildImageLoader(applicationContext)

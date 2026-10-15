@@ -3,6 +3,8 @@ package com.lagradost.cloudstream3.ui.home
 import android.os.Build
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.MediatorLiveData
+import androidx.lifecycle.asLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.lagradost.cloudstream3.APIHolder.apis
@@ -15,6 +17,11 @@ import com.lagradost.cloudstream3.HomePageList
 import com.lagradost.cloudstream3.LoadResponse
 import com.lagradost.cloudstream3.MainAPI
 import com.lagradost.cloudstream3.MainActivity
+import com.lagradost.cloudstream3.R
+import com.lagradost.cloudstream3.ui.resume.NativeContinueWatching
+import com.lagradost.cloudstream3.ui.resume.NativeResumeNotice
+import com.lagradost.cloudstream3.ui.resume.NativeResumeShelf
+import com.lagradost.cloudstream3.resume.ResumeListState
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.amap
 import com.lagradost.cloudstream3.mvvm.Resource
@@ -227,11 +234,44 @@ class HomeViewModel : ViewModel() {
     private val expandable: MutableMap<String, ExpandableHomepageList> = mutableMapOf()
     private val _page =
         MutableLiveData<Resource<Map<String, ExpandableHomepageList>>>(Resource.Loading())
-    val page: LiveData<Resource<Map<String, ExpandableHomepageList>>> = _page
+    private val nativeShelves = NativeContinueWatching.shelves.asLiveData()
+    val page: LiveData<Resource<Map<String, ExpandableHomepageList>>> =
+        MediatorLiveData<Resource<Map<String, ExpandableHomepageList>>>().apply {
+            fun publish() {
+                val remote = nativeShelves.value.orEmpty().mapNotNull(::nativeHomeList).associateBy { it.list.name }
+                val base = _page.value ?: Resource.Loading()
+                value = if (remote.isEmpty()) base else Resource.Success(
+                    remote + ((base as? Resource.Success)?.value ?: emptyMap()))
+            }
+            addSource(_page) { publish() }
+            addSource(nativeShelves) { publish() }
+        }
+
+    private fun nativeShelfName(shelf: NativeResumeShelf): String =
+        context?.getString(R.string.native_resume_shelf, shelf.owner.providerId)
+            ?: "Continue watching — ${shelf.owner.providerId}"
+
+    private fun nativeHomeList(shelf: NativeResumeShelf): ExpandableHomepageList? {
+        val signIn = shelf.state != ResumeListState.READY
+        val notice = when {
+            signIn -> R.string.native_resume_sign_in
+            shelf.error != null -> R.string.native_resume_retry
+            else -> null
+        }
+        val cards: List<SearchResponse> = shelf.cards + listOfNotNull(notice?.let {
+            NativeResumeNotice(shelf.owner, signIn, context?.getString(it).orEmpty())
+        })
+        if (cards.isEmpty() && shelf.nextCursor == null) return null
+        return ExpandableHomepageList(HomePageList(nativeShelfName(shelf), cards), 1, shelf.nextCursor != null)
+    }
 
     val lock: MutableSet<String> = mutableSetOf()
 
     suspend fun expandAndReturn(name: String): ExpandableHomepageList? {
+        NativeContinueWatching.shelves.value.firstOrNull { nativeShelfName(it) == name }?.let { shelf ->
+            NativeContinueWatching.loadMore(shelf.owner)
+            return NativeContinueWatching.shelves.value.firstOrNull { it.owner == shelf.owner }?.let(::nativeHomeList)
+        }
         if (lock.contains(name)) return null
         lock += name
 
@@ -489,6 +529,7 @@ class HomeViewModel : ViewModel() {
     }
 
     fun reloadStored() {
+        NativeContinueWatching.refresh()
         loadResumeWatching()
         loadStoredData()
     }

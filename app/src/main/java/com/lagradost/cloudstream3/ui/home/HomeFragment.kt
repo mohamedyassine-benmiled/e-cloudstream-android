@@ -859,6 +859,7 @@ class HomeFragment : BaseFragment<FragmentHomeBinding>(
                         if (toggleRandomButton) {
                             val distinct = d.values
                                 .flatMap { it.list.list }
+                                .filterNot { it is com.lagradost.cloudstream3.ui.resume.NativeResumeNotice }
                                 .distinctBy { it.url }
                             val hasItems = distinct.isNotEmpty()
                             val isPhone = isLayout(PHONE)

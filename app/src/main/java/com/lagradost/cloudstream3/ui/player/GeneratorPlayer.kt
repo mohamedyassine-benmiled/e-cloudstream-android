@@ -246,6 +246,12 @@ class GeneratorPlayer : FullScreenPlayer() {
     }
 
     private fun getPos(): Long {
+        val native = pendingNativeResume
+        pendingNativeResume = null
+        if (native != null && native.localEpisodeId == viewModel.state.generatorState?.id &&
+            com.lagradost.cloudstream3.ui.resume.NativeContinueWatching.isCurrent(native.request)) {
+            return native.resolved.progress.let { com.lagradost.cloudstream3.ui.resume.initialResumePosition(it.seekPositionMs, it.durationMs) }
+        }
         val durPos = getViewPos(viewModel.state.generatorState?.id) ?: return 0L
         if (durPos.duration == 0L) return 0L
         if (durPos.position * 100L / durPos.duration > 95L) {
@@ -253,6 +259,8 @@ class GeneratorPlayer : FullScreenPlayer() {
         }
         return durPos.position
     }
+
+    private var pendingNativeResume: com.lagradost.cloudstream3.ui.resume.RemoteResumeLaunch? = null
 
     private var currentVerifyLink: Job? = null
 
@@ -533,7 +541,7 @@ class GeneratorPlayer : FullScreenPlayer() {
                 url,
                 uri,
                 startPosition = if (sameEpisode) null else {
-                    if (isNextEpisode) 0L else getPos()
+                    if (isNextEpisode) { pendingNativeResume = null; 0L } else getPos()
                 },
                 subtitles,
                 (if (sameEpisode) currentSelectedSubtitles else null) ?: getAutoSelectSubtitle(
@@ -2229,11 +2237,20 @@ class GeneratorPlayer : FullScreenPlayer() {
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
+        pendingNativeResume?.let {
+            outState.putString(com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.ARGUMENT,
+                com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.encodeLaunch(it))
+        }
         outState.putInt("index", viewModel.episodeIndex)
         super.onSaveInstanceState(outState)
     }
 
     override fun onBindingCreated(binding: FragmentPlayerBinding, savedInstanceState: Bundle?) {
+        // Remove the one-use target from arguments so rotation/rebuffering cannot reapply it.
+        val nativeArgument = savedInstanceState?.getString(com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.ARGUMENT)
+            ?: arguments?.getString(com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.ARGUMENT)
+        if (nativeArgument != null) pendingNativeResume = com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.decodeLaunch(nativeArgument)
+        arguments?.remove(com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.ARGUMENT)
         viewModel = ViewModelProvider(this)[PlayerGeneratorViewModel::class.java]
         sync = ViewModelProvider(this)[SyncViewModel::class.java]
 

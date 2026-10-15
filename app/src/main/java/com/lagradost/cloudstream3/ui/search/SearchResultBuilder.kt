@@ -17,6 +17,8 @@ import com.lagradost.cloudstream3.LiveSearchResponse
 import com.lagradost.cloudstream3.R
 import com.lagradost.cloudstream3.SearchQuality
 import com.lagradost.cloudstream3.SearchResponse
+import com.lagradost.cloudstream3.ui.resume.RemoteResumeCard
+import com.lagradost.cloudstream3.ui.resume.resumeCardState
 import com.lagradost.cloudstream3.isMovieType
 import com.lagradost.cloudstream3.syncproviders.SyncAPI
 import com.lagradost.cloudstream3.ui.settings.Globals.TV
@@ -130,6 +132,7 @@ object SearchResultBuilder {
         }
 
         cardText?.text = card.name
+        itemView.contentDescription = card.name
         cardText?.isVisible = showTitle
         cardView.isVisible = true
         if (!card.posterUrl.isNullOrEmpty()) {
@@ -141,7 +144,7 @@ object SearchResultBuilder {
         fun click(view: View?) {
             clickCallback.invoke(
                 SearchClickCallback(
-                    if (card is DataStoreHelper.ResumeWatchingResult) SEARCH_ACTION_PLAY_FILE else SEARCH_ACTION_LOAD,
+                    if (card is DataStoreHelper.ResumeWatchingResult || card is RemoteResumeCard) SEARCH_ACTION_PLAY_FILE else SEARCH_ACTION_LOAD,
                     view ?: return,
                     position,
                     card
@@ -242,6 +245,24 @@ object SearchResultBuilder {
         }
 
         when (card) {
+            is RemoteResumeCard -> {
+                val state = card.resumeCardState()!!
+                val progress = state.progress
+                val visual = progress?.durationMs?.let { DataStoreHelper.PosDur(progress.seekPositionMs, it).fixVisual() }
+                if (visual != null) {
+                    bar?.max = (visual.duration / 1000).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                    bar?.progress = (visual.position / 1000).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+                    bar?.isVisible = true
+                }
+                playImg?.isVisible = true
+                val label = listOfNotNull(
+                    state.season?.let { "S$it" }, state.number?.let { "E$it" }, state.audio,
+                    progress?.remainingMs?.let { itemView.context.getString(R.string.native_resume_left, it / 60_000) },
+                ).joinToString(" · ")
+                episodeText?.text = label
+                episodeText?.isVisible = showEpisodeText && label.isNotEmpty()
+                itemView.contentDescription = "${card.name} · $label"
+            }
             is LiveSearchResponse -> {
                 SubtitleHelper.getFlagFromIso(card.lang)?.let { flagEmoji ->
                     textFlag?.apply {

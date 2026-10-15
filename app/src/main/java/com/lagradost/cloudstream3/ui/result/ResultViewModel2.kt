@@ -162,6 +162,8 @@ data class AutoResume(
     val episode: Int?,
     val id: Int?,
     val startAction: Int,
+    val nativeResume: com.lagradost.cloudstream3.ui.resume.RemoteResumeRequest? = null,
+    val nativeResolved: com.lagradost.cloudstream3.resume.ResolvedResume? = null,
 )
 
 data class ResultData(
@@ -2507,11 +2509,35 @@ class ResultViewModel2 : ViewModel() {
 
     fun hasLoaded() = currentResponse != null
 
+    /** Reuse the ordinary episode generator and internal player, without fabricating local watches. */
+    private fun resumeRemote(activity: Activity, target: AutoResume): Boolean {
+        val request = target.nativeResume ?: return false
+        val resolved = target.nativeResolved ?: return false
+        if (!com.lagradost.cloudstream3.ui.resume.NativeContinueWatching.isCurrent(request)) return false
+        val matches = currentEpisodes.entries.flatMap { (group, episodes) -> episodes.map { group to it } }
+            .filter { (group, episode) -> com.lagradost.cloudstream3.ui.resume.matchesNativeEpisode(resolved, group.dubStatus, episode) }
+        val (group, episode) = matches.singleOrNull() ?: return false
+        val videos = currentEpisodes.filterKeys { it.dubStatus == group.dubStatus }.entries.sortedBy { it.key.season }.flatMap { it.value }
+        val index = videos.indexOfFirst { it.id == episode.id }
+        if (index < 0) return false
+        val generator = RepoLinkGenerator(videos, page = currentResponse)
+        val args = GeneratorPlayer.newInstance(generator, index, HashMap(currentResponse?.syncData ?: emptyMap())).apply {
+            putString(com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.ARGUMENT,
+                com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.encodeLaunch(
+                    com.lagradost.cloudstream3.ui.resume.RemoteResumeLaunch(request, resolved, episode.id)))
+        }
+        activity.navigate(R.id.global_to_navigation_player, args)
+        return true
+    }
+
     private fun handleAutoStart(activity: Activity?, autostart: AutoResume?) =
         viewModelScope.launchSafe {
             if (autostart == null || activity == null) return@launchSafe
 
             when (autostart.startAction) {
+                START_ACTION_NATIVE_RESUME -> {
+                    if (!resumeRemote(activity, autostart)) showToast(R.string.native_resume_unavailable, Toast.LENGTH_LONG)
+                }
                 START_ACTION_RESUME_LATEST -> {
                     currentEpisodes[currentIndex]?.let { currentRange ->
                         for (ep in currentRange) {
@@ -2622,6 +2648,12 @@ class ResultViewModel2 : ViewModel() {
             _page.postValue(Resource.Loading(url))
             _episodes.postValue(Resource.Loading())
 
+            val nativeResolved = autostart?.nativeResume?.takeIf { autostart.startAction == START_ACTION_NATIVE_RESUME }?.let {
+                (com.lagradost.cloudstream3.ui.resume.NativeContinueWatching.resolve(it) as?
+                    com.lagradost.cloudstream3.resume.ResumeCallResult.Success)?.value
+            }
+            val loadUrl = nativeResolved?.detailUrl ?: url
+
             preferDubStatus = dubStatus
             currentShowFillers = showFillers
 
@@ -2641,7 +2673,7 @@ class ResultViewModel2 : ViewModel() {
             // validate url
             val validUrlResource = safeApiCall {
                 SyncRedirector.redirect(
-                    url,
+                    loadUrl,
                     api
                 )
             }
@@ -2698,7 +2730,7 @@ class ResultViewModel2 : ViewModel() {
                         apiRepository = repo
                     )
                     if (!isActive) return@ioSafe
-                    handleAutoStart(activity, autostart)
+                    handleAutoStart(activity, autostart?.copy(nativeResolved = nativeResolved))
                 }
 
                 is Resource.Loading -> {

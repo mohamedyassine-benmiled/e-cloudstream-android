@@ -26,6 +26,7 @@ import kotlinx.serialization.Serializable
 
 const val START_ACTION_RESUME_LATEST = 1
 const val START_ACTION_LOAD_EP = 2
+const val START_ACTION_NATIVE_RESUME = 3
 
 /**
  * Future proofed way to mark episodes as watched
@@ -158,6 +159,10 @@ object ResultFragment {
                     putInt(EPISODE_BUNDLE, card.episode)
             }
             putInt(START_ACTION_BUNDLE, startAction)
+            if (startAction == START_ACTION_NATIVE_RESUME && card is com.lagradost.cloudstream3.ui.resume.RemoteResumeCard) {
+                putString(com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.ARGUMENT,
+                    com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.encodeRequest(card.request))
+            }
             if (startValue != null)
                 putInt(START_VALUE_BUNDLE, startValue)
 
@@ -305,11 +310,15 @@ object ResultFragment {
 
             arguments?.remove(START_VALUE_BUNDLE)
             arguments?.remove(START_ACTION_BUNDLE)
+            val native = com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.decodeRequest(
+                arguments?.getString(com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.ARGUMENT))
+            arguments?.remove(com.lagradost.cloudstream3.ui.resume.NativeResumeTransport.ARGUMENT)
             AutoResume(
                 startAction = action,
                 id = startValue,
                 episode = resumeEpisode,
-                season = resumeSeason
+                season = resumeSeason,
+                nativeResume = native,
             )
         }
         return StoredData(url, apiName, name, showFillers, dubStatus, start, playerAction, restart)

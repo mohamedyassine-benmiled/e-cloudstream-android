@@ -2,7 +2,28 @@
 
 The additive API lives in `library/src/commonMain/kotlin/com/lagradost/cloudstream3/resume` and is kept identical in the Eimon Android and Windows forks.
 
-This milestone adds the data contract, capability negotiation, provider registry, and common tests only. `NativeResumeBridge.getCapabilities()` deliberately returns no enabled capabilities. Native cards, source registration through the app plugin loader, and player event dispatch are **not integrated yet**. Do not disable a stock-host fallback just because the bridge class exists.
+Normal build variants still advertise no native capabilities. The in-progress `stableNativeTest` variant enables READ_LIST/RESOLVE_RESUME for mobile testing, with registered-provider ownership checks and plugin-unload cleanup. Player progress dispatch remains unavailable. Do not disable a stock-host fallback just because the bridge class exists.
+
+## Android test APK (in progress, not built yet)
+
+- Separate package `com.lagradost.cloudstream3.eimon`, label **Eimon Cloudstream Test**, debug-signed. It does not replace the official installation or migrate its private settings/session.
+- Generic remote cache under `ui/resume`, separate from local history; bounded calls, pagination, account/profile invalidation, and source status cards. Existing Home shelves/cards and expanded lists are reused.
+- Remote cards expose episode/audio/progress/remaining time, Resume, Open title page, and device-only Hide. No website deletion is offered.
+- Fragment arguments carry bounded JSON metadata into the existing result/generator/player navigation. A typed initial seek is consumed once, preserving the normal completion/restart threshold and normal local player saves.
+- Native resume explicitly uses the built-in player. Casting, downloads, and external-player paths are unchanged and do not gain native reporting.
+- AniKoto Account v8 supplies the adapter and owns login/audio policy. No Anikoto endpoints or settings were added to this app.
+
+Build (JDK 17 toolchain, Android SDK 37, build tools 36.0.0 required):
+
+```powershell
+.\gradlew.bat :app:assembleStableNativeTest :app:testStableDebugUnitTest
+```
+
+On 2026-10-15 the `stableNativeTest` variant compiled and packaged successfully, and unit tests passed:
+`./gradlew :app:assembleStableNativeTest :app:testStableDebugUnitTest` — BUILD SUCCESSFUL (JDK 17 toolchain,
+Android SDK platform 37 + build-tools 36.0.0). Test suites: 15 tests, 0 failures (7 new `NativeResumeTest`
+cases covering presentation parity, JSON transport, invalid inputs, episode/audio selection, completion
+threshold, and unknown duration). This verifies compilation and helper logic, not on-device behaviour.
 
 ## Minimal host integration policy
 
@@ -30,4 +51,14 @@ This milestone adds the data contract, capability negotiation, provider registry
 
 The tests cover version negotiation, raw/clamped timestamps, duration handling, malformed/cross-account records, provider isolation, timeout, caller cancellation, unregister cleanup, stale registration handles, and extension-controlled audio substitution. They do not constitute native UI, full-app, or stock-extension binary compatibility tests.
 
-Next: adapt remote cards to existing Continue Watching UI, then feed the resolved target into the existing resume path. No alternative player is planned.
+Next: install the test APK next to the official app (separate package, fresh login required), verify signed-in
+native shelves and exact resume against extension v8, then port the same verification to stock-app compatibility.
+No alternative player is planned.
+
+## Test APK (2026-10-15)
+
+- File: `dist/Eimon-Cloudstream-Test-4.8.0-native-test.apk` (87.7 MB, debug-signed test key, not for redistribution).
+- Package `com.lagradost.cloudstream3.eimon`, label **Eimon Cloudstream Test**, version `4.8.0-Eimon-native-test`.
+- Installs alongside the official app; does not migrate its settings/session. Add the Eimon + Phisher repos and sign in again inside the test app.
+- Prerequisites installed during this build: Temurin JDK 17 (toolchain only), SDK `platforms;android-36`,
+  `platforms;android-37.0` (copied to `android-37` for compileSdk 37), `build-tools;36.0.0`.

@@ -1,6 +1,13 @@
 package com.lagradost.cloudstream3.ui.search
 
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
+import com.lagradost.cloudstream3.plugins.Plugin
+import com.lagradost.cloudstream3.plugins.PluginManager
+import com.lagradost.cloudstream3.ui.resume.NativeContinueWatching
+import com.lagradost.cloudstream3.ui.resume.NativeResumeNotice
+import com.lagradost.cloudstream3.ui.resume.RemoteResumeCard
+import com.lagradost.cloudstream3.ui.result.START_ACTION_NATIVE_RESUME
 import com.lagradost.cloudstream3.CommonActivity.activity
 import com.lagradost.cloudstream3.CommonActivity.showToast
 import com.lagradost.cloudstream3.MainActivity
@@ -16,6 +23,31 @@ import com.lagradost.cloudstream3.utils.downloader.DownloadObjects
 object SearchHelper {
     fun handleSearchClickCallback(callback: SearchClickCallback) {
         val card = callback.card
+        if (card is NativeResumeNotice) {
+            if (callback.action == SEARCH_ACTION_FOCUSED) return
+            if (card.signIn) {
+                (PluginManager.plugins[card.owner.pluginId] as? Plugin)?.openSettings?.invoke(callback.view.context)
+            } else NativeContinueWatching.refresh()
+            return
+        }
+        if (card is RemoteResumeCard) {
+            when (callback.action) {
+                SEARCH_ACTION_PLAY_FILE -> loadSearchResult(card, START_ACTION_NATIVE_RESUME)
+                SEARCH_ACTION_LOAD -> loadSearchResult(card)
+                SEARCH_ACTION_SHOW_METADATA -> AlertDialog.Builder(callback.view.context)
+                    .setTitle(card.name)
+                    .setItems(arrayOf(
+                        callback.view.context.getString(R.string.native_resume_action),
+                        callback.view.context.getString(R.string.native_resume_open_title),
+                        callback.view.context.getString(R.string.native_resume_hide),
+                    )) { _, action -> when (action) {
+                        0 -> loadSearchResult(card, START_ACTION_NATIVE_RESUME)
+                        1 -> loadSearchResult(card)
+                        2 -> NativeContinueWatching.hide(card)
+                    } }.show()
+            }
+            return
+        }
         when (callback.action) {
             SEARCH_ACTION_LOAD -> {
                 loadSearchResult(card)

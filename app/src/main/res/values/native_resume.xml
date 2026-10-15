@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="native_resume_shelf">Continue watching — %1$s</string>
+    <string name="native_resume_sign_in">Sign in using this extension’s settings</string>
+    <string name="native_resume_retry">Could not refresh account list. Tap to retry.</string>
+    <string name="native_resume_unavailable">Saved episode could not be resumed. Refresh its account list or select an episode on the title page.</string>
+    <string name="native_resume_action">Resume saved episode</string>
+    <string name="native_resume_open_title">Open title page</string>
+    <string name="native_resume_hide">Hide from this device</string>
+    <string name="native_resume_left">%1$d min left</string>
+</resources>

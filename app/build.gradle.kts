@@ -110,6 +110,8 @@ android {
         versionName = libs.versions.versionName.get()
 
         manifestPlaceholders["target_sdk_version"] = libs.versions.targetSdk.get()
+        manifestPlaceholders["app_label"] = "@string/app_name"
+        buildConfigField("boolean", "NATIVE_EXTENSION_RESUME", "false")
 
         // Reads local.properties
         val localProperties = gradleLocalProperties(rootDir, project.providers)
@@ -159,6 +161,15 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        create("nativeTest") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".eimon"
+            versionNameSuffix = "-Eimon-native-test"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("debug")
+            manifestPlaceholders["app_label"] = "Eimon Cloudstream Test"
+            buildConfigField("boolean", "NATIVE_EXTENSION_RESUME", "true")
         }
     }
 
