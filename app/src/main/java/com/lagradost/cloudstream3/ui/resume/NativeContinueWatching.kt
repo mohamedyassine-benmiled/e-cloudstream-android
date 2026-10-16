@@ -83,6 +83,10 @@ data class NativeResumeShelf(
     val consumedCursors: Set<String> = emptySet(),
 )
 
+/** Account rows belong to the selected provider, never to a global or same-named foreign plugin. */
+internal fun ResumeSourceKey.belongsToHomeProvider(providerName: String?, providerPlugin: String?): Boolean =
+    providerPlugin != null && providerId == providerName && pluginId == providerPlugin
+
 /** Bounded remote cache. Fetching/resolving never writes the local watch/download databases. */
 object NativeContinueWatching {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

@@ -1,4 +1,21 @@
-# CloudStream
+# Eimon CloudStream for Android — unofficial fork
+
+This repository is an **unofficial fork** of [recloudstream/cloudstream](https://github.com/recloudstream/cloudstream), not an official CloudStream release or an upstream-endorsed project. Report fork-specific issues here, not to upstream.
+
+## Eimon account Continue Watching
+
+- Account Continue Watching is a normal Home row **inside the owning extension/provider**, not a global row. Both provider and plugin ownership are checked.
+- Native cards retain episode/audio/progress information and automatic resume at the account's saved episode and timestamp. Fetching the row does not populate local watch history.
+- **Only this account's compatible extensions (AniKoto / AniKoto Account from [the Eimon extension repository](https://github.com/mohamedyassine-benmiled/eimon-cloudstream-repo)) currently support this new feature.** Other extensions can still work normally, but do not gain account Continue Watching or remote auto-resume automatically.
+- Website login, episode matching and optional progress uploads remain the extension's responsibility. This host update does not add native player-progress reporting.
+
+### Eimon downloads
+
+Use **[this fork's Releases](https://github.com/mohamedyassine-benmiled/eimon-cloudstream-android/releases)** for the `-eimon` APK and `SHA256SUMS.txt`. The Native test APK workflow tests and publishes a GitHub prerelease on each push to `feature/native-extension-resume`, or when manually dispatched. The APK enables native account resume and uses the separate package `com.lagradost.cloudstream3.eimon`; it does not replace the official app.
+
+These are debug-signed test builds, not official or production-signed releases. CI debug signing keys are not persistent across runners, so an APK may not update an existing test installation signed with a different key. Preserve your app data before changing installations.
+
+The documentation and links below are inherited from upstream; upstream download links do **not** contain the Eimon feature.
 
 **⚠️ Warning: By default, this app doesn't provide any video sources; you have to install extensions to add functionality to the app.**
 <p align="left"><a href="https://github.com/recloudstream/cloudstream/releases/download/pre-release/app-prerelease-release.apk"><img src=".github/images/download-cloudstream-pre.png" alt="Download Cloudstream Pre-Release" width=430/></a></p>

@@ -21,6 +21,7 @@ import com.lagradost.cloudstream3.R
 import com.lagradost.cloudstream3.ui.resume.NativeContinueWatching
 import com.lagradost.cloudstream3.ui.resume.NativeResumeNotice
 import com.lagradost.cloudstream3.ui.resume.NativeResumeShelf
+import com.lagradost.cloudstream3.ui.resume.belongsToHomeProvider
 import com.lagradost.cloudstream3.resume.ResumeListState
 import com.lagradost.cloudstream3.SearchResponse
 import com.lagradost.cloudstream3.amap
@@ -238,14 +239,22 @@ class HomeViewModel : ViewModel() {
     val page: LiveData<Resource<Map<String, ExpandableHomepageList>>> =
         MediatorLiveData<Resource<Map<String, ExpandableHomepageList>>>().apply {
             fun publish() {
-                val remote = nativeShelves.value.orEmpty().mapNotNull(::nativeHomeList).associateBy { it.list.name }
                 val base = _page.value ?: Resource.Loading()
-                value = if (remote.isEmpty()) base else Resource.Success(
-                    remote + ((base as? Resource.Success)?.value ?: emptyMap()))
+                val remote = visibleNativeShelves().mapNotNull(::nativeHomeList).associateBy { it.list.name }
+                value = if (remote.isEmpty() || base !is Resource.Success) base
+                    else Resource.Success(remote + base.value)
             }
             addSource(_page) { publish() }
             addSource(nativeShelves) { publish() }
+            addSource(_apiName) { publish() }
         }
+
+    private fun visibleNativeShelves(): List<NativeResumeShelf> {
+        val provider = getApiFromNameNull(_apiName.value) ?: return emptyList()
+        return nativeShelves.value.orEmpty().filter {
+            it.owner.belongsToHomeProvider(provider.name, provider.sourcePlugin)
+        }
+    }
 
     private fun nativeShelfName(shelf: NativeResumeShelf): String =
         context?.getString(R.string.native_resume_shelf, shelf.owner.providerId)
@@ -268,9 +277,9 @@ class HomeViewModel : ViewModel() {
     val lock: MutableSet<String> = mutableSetOf()
 
     suspend fun expandAndReturn(name: String): ExpandableHomepageList? {
-        NativeContinueWatching.shelves.value.firstOrNull { nativeShelfName(it) == name }?.let { shelf ->
+        visibleNativeShelves().firstOrNull { nativeShelfName(it) == name }?.let { shelf ->
             NativeContinueWatching.loadMore(shelf.owner)
-            return NativeContinueWatching.shelves.value.firstOrNull { it.owner == shelf.owner }?.let(::nativeHomeList)
+            return visibleNativeShelves().firstOrNull { it.owner == shelf.owner }?.let(::nativeHomeList)
         }
         if (lock.contains(name)) return null
         lock += name

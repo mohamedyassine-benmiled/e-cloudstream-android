@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: native-test-apk
@@ -52,6 +52,27 @@ jobs:
         with:
           name: Eimon-Cloudstream-Test-APK
           path: app/build/outputs/apk/stable/nativeTest/*.apk
+          if-no-files-found: error
+
+      - name: Publish Eimon GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          version=$(sed -n 's/^versionName = "\([^"]*\)"/\1/p' gradle/libs.versions.toml)
+          test -n "$version"
+          tag="v${version}-eimon.${GITHUB_RUN_NUMBER}"
+          mkdir -p release
+          cp app/build/outputs/apk/stable/nativeTest/*.apk "release/CloudStream-${version}-eimon.apk"
+          (cd release && sha256sum *.apk > SHA256SUMS.txt)
+          cat > release-notes.md <<'EOF'
+          Unofficial Eimon fork — not an official CloudStream release.
+
+          Account Continue Watching now appears only inside its owning provider's normal Home rows, retaining progress and native episode/timestamp resume. Only the maintainer's compatible AniKoto / AniKoto Account extensions currently support this feature; other extensions are unchanged. No extension update is needed for row placement.
+
+          APK: separate com.lagradost.cloudstream3.eimon package, experimental native resume enabled, debug-signed. CI debug keys may differ between builds; preserve app data before changing installations. Check SHA256SUMS.txt before installation.
+          EOF
+          gh release create "$tag" release/*.apk release/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "CloudStream ${version}-eimon (build ${GITHUB_RUN_NUMBER})" --notes-file release-notes.md --prerelease
 
       - name: Upload test reports
         if: always()

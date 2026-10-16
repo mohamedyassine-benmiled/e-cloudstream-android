@@ -4,13 +4,14 @@ The additive API lives in `library/src/commonMain/kotlin/com/lagradost/cloudstre
 
 Normal build variants still advertise no native capabilities. The in-progress `stableNativeTest` variant enables READ_LIST/RESOLVE_RESUME for mobile testing, with registered-provider ownership checks and plugin-unload cleanup. Player progress dispatch remains unavailable. Do not disable a stock-host fallback just because the bridge class exists.
 
-## Android test APK (in progress, not built yet)
+## Android test APK
 
 - Separate package `com.lagradost.cloudstream3.eimon`, label **Eimon Cloudstream Test**, debug-signed. It does not replace the official installation or migrate its private settings/session.
 - Generic remote cache under `ui/resume`, separate from local history; bounded calls, pagination, account/profile invalidation, and source status cards. Existing Home shelves/cards and expanded lists are reused.
 - Remote cards expose episode/audio/progress/remaining time, Resume, Open title page, and device-only Hide. No website deletion is offered.
 - Fragment arguments carry bounded JSON metadata into the existing result/generator/player navigation. A typed initial seek is consumed once, preserving the normal completion/restart threshold and normal local player saves.
 - Native resume explicitly uses the built-in player. Casting, downloads, and external-player paths are unchanged and do not gain native reporting.
+- Remote account shelves are ordinary rows inside their owning provider's Home page, not global rows. Both provider name and plugin ownership must match the selected provider. Switching providers removes the other provider's account row; progress cards, notices, pagination and typed exact resume are retained. No website-specific logic is added to the host.
 - AniKoto Account v8 supplies the adapter and owns login/audio policy. No Anikoto endpoints or settings were added to this app.
 
 Build (JDK 17 toolchain, Android SDK 37, build tools 36.0.0 required):
