@@ -81,6 +81,7 @@ data class NativeResumeShelf(
     val state: ResumeListState = ResumeListState.READY,
     val error: ResumeFailure? = null,
     val consumedCursors: Set<String> = emptySet(),
+    val newEpisodes: Boolean = false,
 )
 
 /** Account rows belong to the selected provider, never to a global or same-named foreign plugin. */
@@ -174,14 +175,17 @@ object NativeContinueWatching {
 
     private fun hideKey(card: RemoteResumeCard): String {
         val r = card.request
-        val identity = listOf(r.owner.pluginId, r.owner.providerId, r.context.accountId, r.item.itemId).joinToString("") { "${it.length}:$it" }
+        val identity = (listOf(r.owner.pluginId, r.owner.providerId, r.context.accountId, r.item.itemId) +
+            if (r.item.resumeToken.startsWith("latest-v1:")) listOf("new", r.item.episode.episodeId) else emptyList())
+            .joinToString("") { "${it.length}:$it" }
         val hash = MessageDigest.getInstance("SHA-256").digest(identity.toByteArray()).joinToString("") { "%02x".format(it) }
         return "${r.context.profileId}/native_resume_hidden/$hash"
     }
-    private fun hidden(card: RemoteResumeCard) = getKey<Boolean>(hideKey(card), false) == true
+    internal fun hidden(card: RemoteResumeCard) = getKey<Boolean>(hideKey(card), false) == true
     fun hide(card: RemoteResumeCard) {
         if (!isCurrent(card.request)) return
         setKey(hideKey(card), true)
+        NativeResumeExtras.hide(card)
         state.update { current -> current.map { it.copy(cards = it.cards.filterNot { entry -> entry.request == card.request }) } }
     }
     fun isCurrent(request: RemoteResumeRequest): Boolean =

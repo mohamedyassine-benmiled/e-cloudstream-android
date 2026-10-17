@@ -6,6 +6,10 @@ Normal build variants still advertise no native capabilities. The in-progress `s
 
 ## Android test APK
 
+### Unreleased: cloud title progress and Watching – New Episodes
+
+Optional `TITLE_PROGRESS` / `NEW_EPISODES` capability negotiation enables provider-owned latest-episode cards and a cloud-backed series-page frontier without importing it into local history. Earlier same-season/same-edition episodes are inferred watched, the saved episode resumes at the cloud timestamp, and future episode spoilers are hidden by default; episode options can show/hide them. New Episodes launches the latest eligible same-edition episode at zero, independently of the saved frontier. Stock/older hosts retain the extension's ordinary row. Matching extension support and signed-in device acceptance tests are required; these changes are not yet released.
+
 - Separate package `com.lagradost.cloudstream3.eimon`, label **Eimon Cloudstream Test**, debug-signed. It does not replace the official installation or migrate its private settings/session.
 - Generic remote cache under `ui/resume`, separate from local history; bounded calls, pagination, account/profile invalidation, and source status cards. Existing Home shelves/cards and expanded lists are reused.
 - Remote cards expose episode/audio/progress/remaining time, Resume, Open title page, and device-only Hide. No website deletion is offered.

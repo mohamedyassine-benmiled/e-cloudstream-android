@@ -457,8 +457,18 @@ data class ExtractedTrailerData(
 
 class ResultViewModel2 : ViewModel() {
     private var currentResponse: LoadResponse? = null
+    private var cloudProgress: com.lagradost.cloudstream3.ui.resume.RemoteTitleProgress? = null
+    private var cloudAnchor: Pair<EpisodeIndexer, ResultEpisode>? = null
+    private var cloudJob: Job? = null
+    private var cloudSequence = 0L
+    private var cloudHideSpoilers = true
     var EPISODE_RANGE_SIZE: Int = 20
     fun clear() {
+        cloudJob?.cancel()
+        cloudSequence++
+        cloudProgress = null
+        cloudAnchor = null
+        cloudHideSpoilers = true
         currentResponse = null
         _page.postValue(null)
     }
@@ -1357,9 +1367,25 @@ class ResultViewModel2 : ViewModel() {
 
 
     private suspend fun handleEpisodeClickEvent(click: EpisodeClickEvent) {
+        if (click.action == ACTION_PLAY_EPISODE_IN_PLAYER && cloudAnchor?.second?.id == click.data.id && hasCloudProgress()) {
+            val request = cloudProgress!!.request
+            val resolved = (com.lagradost.cloudstream3.ui.resume.NativeContinueWatching.resolve(request) as?
+                com.lagradost.cloudstream3.resume.ResumeCallResult.Success)?.value
+            val host = activity
+            if (resolved == null || host == null || !resumeRemote(host, request, resolved)) {
+                refreshCloudProgress()
+                showToast(R.string.native_resume_unavailable, Toast.LENGTH_LONG)
+            }
+            return
+        }
         when (click.action) {
+            ACTION_CLOUD_SPOILERS -> {
+                cloudHideSpoilers = !cloudHideSpoilers
+                reloadEpisodes(refreshCloud = false)
+            }
             ACTION_SHOW_OPTIONS -> {
                 val options = mutableListOf<Pair<UiText, Int>>()
+                if (hasCloudProgress()) options.add(txt(if (cloudHideSpoilers) R.string.native_resume_show_spoilers else R.string.native_resume_hide_spoilers) to ACTION_CLOUD_SPOILERS)
 
                 if (activity?.isConnectedToChromecast() == true) {
                     options.addAll(
@@ -1886,7 +1912,7 @@ class ResultViewModel2 : ViewModel() {
                     position = posDur?.position ?: 0,
                     duration = posDur?.duration ?: 0,
                     videoWatchState = watchState
-                )
+                ).let { episode -> applyCloudProgress(indexer.dubStatus, episode) }
             }
         } ?: emptyList()
     }
@@ -1939,7 +1965,7 @@ class ResultViewModel2 : ViewModel() {
         }
     }
 
-    fun reloadEpisodes() {
+    fun reloadEpisodes(refreshCloud: Boolean = true) {
         if (currentResponse?.isMovie() == true) {
             postMovie()
         } else {
@@ -1956,6 +1982,60 @@ class ResultViewModel2 : ViewModel() {
             _movie.postValue(null)
         }
         postResume()
+        if (refreshCloud) refreshCloudProgress()
+    }
+
+    fun hasCloudProgress(): Boolean = cloudProgress?.let {
+        com.lagradost.cloudstream3.ui.resume.NativeContinueWatching.isCurrent(it.request) &&
+            it.request.item.detailUrl == currentResponse?.url && it.request.owner.providerId == currentResponse?.apiName
+    } == true && cloudAnchor != null
+
+    private fun applyCloudProgress(dub: DubStatus, episode: ResultEpisode): ResultEpisode {
+        if (!hasCloudProgress()) return episode
+        val anchor = cloudAnchor ?: return episode
+        val projected = com.lagradost.cloudstream3.ui.resume.cloudEpisodeProgress(cloudProgress!!.resolved, anchor.second, anchor.first.dubStatus, dub, episode)
+        return if (cloudHideSpoilers && dub == anchor.first.dubStatus && episode.seasonIndex == anchor.second.seasonIndex &&
+            episode.parentId == anchor.second.parentId && episode.episode > anchor.second.episode)
+            projected.copy(name = null, poster = null, description = null) else projected
+    }
+
+    private fun refreshCloudProgress(selectFrontier: Boolean = false) {
+        val response = currentResponse ?: return
+        cloudJob?.cancel()
+        val sequence = ++cloudSequence
+        cloudProgress = null
+        cloudAnchor = null
+        if (response.isMovie()) return
+        cloudJob = viewModelScope.launchSafe {
+            val remote = com.lagradost.cloudstream3.ui.resume.NativeResumeExtras.titleProgress(response.apiName, response.url)
+            if (sequence != cloudSequence || currentResponse !== response) return@launchSafe
+            if (remote != null && com.lagradost.cloudstream3.ui.resume.NativeContinueWatching.isCurrent(remote.request)) {
+                val matches = currentEpisodes.entries.flatMap { (group, episodes) -> episodes.map { group to it } }
+                    .filter { (group, episode) -> com.lagradost.cloudstream3.ui.resume.matchesNativeEpisode(remote.resolved, group.dubStatus, episode) }
+                matches.singleOrNull()?.let { anchor ->
+                    cloudProgress = remote
+                    cloudAnchor = anchor
+                    if (selectFrontier) currentRanges[anchor.first]?.firstOrNull { anchor.second.episode in it.startEpisode..it.endEpisode }?.let {
+                        postEpisodeRange(anchor.first, it, currentSorting ?: DataStoreHelper.resultsSortingMode)
+                    }
+                }
+            }
+            reloadEpisodes(refreshCloud = false)
+        }
+    }
+
+    init {
+        viewModelScope.launchSafe {
+            kotlinx.coroutines.flow.combine(com.lagradost.cloudstream3.resume.NativeResumeBridge.changes,
+                DataStoreHelper.selectedAccountNumberFlow) { revision, profile -> revision to profile }.collect {
+                if (currentResponse != null) {
+                    cloudProgress = null
+                    cloudAnchor = null
+                    reloadEpisodes(refreshCloud = false)
+                    refreshCloudProgress()
+                }
+            }
+        }
     }
 
     private fun postSubscription(loadResponse: LoadResponse) {
@@ -2401,6 +2481,7 @@ class ResultViewModel2 : ViewModel() {
 
         postEpisodeRange(min, range, DataStoreHelper.resultsSortingMode)
         postResume()
+        refreshCloudProgress(selectFrontier = true)
     }
 
     private fun postResume() {
@@ -2408,6 +2489,16 @@ class ResultViewModel2 : ViewModel() {
     }
 
     private fun resume(): ResumeWatchingStatus? {
+        if (hasCloudProgress()) {
+            val anchor = cloudAnchor!!
+            val episode = applyCloudProgress(anchor.first.dubStatus, anchor.second)
+            val progress = episode.duration.takeIf { it > 0 }?.let { duration ->
+                ResumeProgress((episode.position / 1000).coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                    (duration / 1000).coerceAtMost(Int.MAX_VALUE.toLong()).toInt(),
+                    txt(R.string.resume_remaining, secondsToReadable(((duration - episode.position).coerceAtLeast(0) / 1000).toInt(), "0 mins")))
+            }
+            return ResumeWatchingStatus(progress, false, episode)
+        }
         val correctId = currentId ?: return null
         val resume = getLastWatched(correctId)
         val resumeParentId = resume?.parentId
@@ -2513,6 +2604,11 @@ class ResultViewModel2 : ViewModel() {
     private fun resumeRemote(activity: Activity, target: AutoResume): Boolean {
         val request = target.nativeResume ?: return false
         val resolved = target.nativeResolved ?: return false
+        return resumeRemote(activity, request, resolved)
+    }
+
+    private fun resumeRemote(activity: Activity, request: com.lagradost.cloudstream3.ui.resume.RemoteResumeRequest,
+        resolved: com.lagradost.cloudstream3.resume.ResolvedResume): Boolean {
         if (!com.lagradost.cloudstream3.ui.resume.NativeContinueWatching.isCurrent(request)) return false
         val matches = currentEpisodes.entries.flatMap { (group, episodes) -> episodes.map { group to it } }
             .filter { (group, episode) -> com.lagradost.cloudstream3.ui.resume.matchesNativeEpisode(resolved, group.dubStatus, episode) }

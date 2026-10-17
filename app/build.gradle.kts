@@ -165,7 +165,7 @@ android {
         create("nativeTest") {
             initWith(getByName("debug"))
             applicationIdSuffix = ".eimon"
-            versionNameSuffix = "-eimon"
+            versionNameSuffix = "-eimon.2"
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("debug")
             manifestPlaceholders["app_label"] = "Eimon Cloudstream Test"

@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="native_resume_shelf">Continue watching — %1$s</string>
+    <string name="native_resume_new_shelf">Watching – New Episodes — %1$s</string>
+    <string name="native_resume_show_spoilers">Show cloud episode spoilers</string>
+    <string name="native_resume_hide_spoilers">Hide cloud episode spoilers</string>
     <string name="native_resume_sign_in">Sign in using this extension’s settings</string>
     <string name="native_resume_retry">Could not refresh account list. Tap to retry.</string>
     <string name="native_resume_unavailable">Saved episode could not be resumed. Refresh its account list or select an episode on the title page.</string>
