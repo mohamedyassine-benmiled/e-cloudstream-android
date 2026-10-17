@@ -23,7 +23,7 @@ The APK remains an experimental `stableNativeTest` build. Automated tests and AP
 - Native **Watching – New Episodes** starts the newest eligible episode in the saved audio edition at **00:00** after revalidation.
 - Future-episode spoilers are hidden by default; episode options can show/hide cloud spoilers.
 
-Account features require compatible extensions, currently AniKoto from [the Eimon extension repository](https://github.com/mohamedyassine-benmiled/eimon-cloudstream-repo). Ordinary extensions continue to work but do not automatically gain account integration. Website login, episode matching and optional uploads remain in the extension. Viewing rows/details does not advance cloud history. Optional uploads remain position-based, not immediate pause/exit reporting, and have no durable offline queue.
+Account features are available to extensions that advertise the required host capabilities, such as remote-list reading, exact resume, cloud title progress, and latest-episode discovery. Other extensions continue to work normally without these optional features. Website login, episode matching and optional uploads remain extension responsibilities. Viewing rows/details does not advance cloud history. Optional uploads remain position-based, not immediate pause/exit reporting, and have no durable offline queue.
 
 ## Development
 

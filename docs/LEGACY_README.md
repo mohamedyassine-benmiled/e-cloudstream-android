@@ -4,11 +4,11 @@ Historical documentation only. Versions, signing instructions, release links and
 
 This repository is an **unofficial fork** of [recloudstream/cloudstream](https://github.com/recloudstream/cloudstream), not an official CloudStream release or an upstream-endorsed project. Report fork-specific issues here, not to upstream.
 
-## Eimon account Continue Watching
+## Provider-owned account Continue Watching
 
 - Account Continue Watching is a normal Home row **inside the owning extension/provider**, not a global row. Both provider and plugin ownership are checked.
 - Native cards retain episode/audio/progress information and automatic resume at the account's saved episode and timestamp. Fetching the row does not populate local watch history.
-- **Only this account's compatible extensions (AniKoto / AniKoto Account from [the Eimon extension repository](https://github.com/mohamedyassine-benmiled/eimon-cloudstream-repo)) currently support this new feature.** Other extensions can still work normally, but do not gain account Continue Watching or remote auto-resume automatically.
+- Extensions that advertise the required account-list and resume capabilities can use this feature. Other extensions continue to work normally without account Continue Watching or remote auto-resume.
 - Website login, episode matching and optional progress uploads remain the extension's responsibility. This host update does not add native player-progress reporting.
 
 ### Eimon downloads

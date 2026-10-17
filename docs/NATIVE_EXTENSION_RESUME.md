@@ -16,7 +16,7 @@ Optional `TITLE_PROGRESS` / `NEW_EPISODES` capability negotiation enables provid
 - Fragment arguments carry bounded JSON metadata into the existing result/generator/player navigation. A typed initial seek is consumed once, preserving the normal completion/restart threshold and normal local player saves.
 - Native resume explicitly uses the built-in player. Casting, downloads, and external-player paths are unchanged and do not gain native reporting.
 - Remote account shelves are ordinary rows inside their owning provider's Home page, not global rows. Both provider name and plugin ownership must match the selected provider. Switching providers removes the other provider's account row; progress cards, notices, pagination and typed exact resume are retained. No website-specific logic is added to the host.
-- AniKoto Account v8 supplies the adapter and owns login/audio policy. No Anikoto endpoints or settings were added to this app.
+- A compatible extension supplies the site-specific adapter and owns its login/audio policy. No site-specific endpoints or account settings were added to this app.
 
 Build (JDK 17 toolchain, Android SDK 37, build tools 36.0.0 required):
 
@@ -64,6 +64,6 @@ No alternative player is planned.
 
 - File: `dist/Eimon-Cloudstream-Test-4.8.0-native-test.apk` (87.7 MB, debug-signed test key, not for redistribution).
 - Package `com.lagradost.cloudstream3.eimon`, label **Eimon Cloudstream Test**, version `4.8.0-Eimon-native-test`.
-- Installs alongside the official app; does not migrate its settings/session. Add the Eimon + Phisher repos and sign in again inside the test app.
+- Installs alongside the official app; does not migrate its settings/session. Add extension sources containing adapters that advertise the required capabilities, then sign in to the relevant service again inside the test app.
 - Prerequisites installed during this build: Temurin JDK 17 (toolchain only), SDK `platforms;android-36`,
   `platforms;android-37.0` (copied to `android-37` for compileSdk 37), `build-tools;36.0.0`.
