@@ -1,13 +1,11 @@
-name: Native test APK
+name: e-cloudstream Android APK
 
-# Secrets-free test build for the experimental native-resume fork.
-# Upstream's own build/archive workflows need recloudstream/secrets, which
-# this fork cannot access. This workflow only assembles the debug-signed
-# stableNativeTest variant (separate package, no keystore needed).
+# Unofficial Eimon native-resume build, signed with a persistent private key.
+# Eimon signing secrets are independent of upstream's release credentials.
 
 on:
   push:
-    branches: [feature/native-extension-resume]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -44,13 +42,46 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
 
+      - name: Prepare persistent Eimon signing key
+        env:
+          KEYSTORE_BASE64: ${{ secrets.EIMON_SIGNING_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.EIMON_SIGNING_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.EIMON_SIGNING_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.EIMON_SIGNING_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$KEYSTORE_BASE64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo '::error::Configure all four EIMON_SIGNING_* repository secrets; refusing to publish with a temporary debug key.'
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/eimon-android-release.p12"
+          keytool -list -keystore "$RUNNER_TEMP/eimon-android-release.p12" -storetype PKCS12 -storepass:env STORE_PASSWORD -alias "$KEY_ALIAS" > /dev/null
+
       - name: Build test APK and run unit tests
-        run: ./gradlew :app:assembleStableNativeTest :app:testStableDebugUnitTest :library:jvmTest --tests 'com.lagradost.cloudstream3.resume.*' --no-daemon
+        env:
+          EIMON_SIGNING_STORE_FILE: ${{ runner.temp }}/eimon-android-release.p12
+          EIMON_SIGNING_STORE_PASSWORD: ${{ secrets.EIMON_SIGNING_STORE_PASSWORD }}
+          EIMON_SIGNING_KEY_ALIAS: ${{ secrets.EIMON_SIGNING_KEY_ALIAS }}
+          EIMON_SIGNING_KEY_PASSWORD: ${{ secrets.EIMON_SIGNING_KEY_PASSWORD }}
+        run: ./gradlew :app:assembleStableNativeTest :app:testStableDebugUnitTest :library:jvmTest --tests 'com.lagradost.cloudstream3.resume.*' --no-configuration-cache --no-daemon
+
+      - name: Verify published APK signing identity
+        run: |
+          set -euo pipefail
+          apk=(app/build/outputs/apk/stable/nativeTest/*.apk)
+          test "${#apk[@]}" -eq 1
+          expected=$(tr -d '\r\n' < docs/android-signing-certificate.sha256)
+          actual=$("$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --print-certs "${apk[0]}" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+          if [ "$actual" != "$expected" ]; then
+            echo '::error::APK certificate does not match the persistent e-cloudstream signing identity.'
+            exit 1
+          fi
 
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: Eimon-Cloudstream-Test-APK
+          name: e-cloudstream-Android-APK
           path: app/build/outputs/apk/stable/nativeTest/*.apk
           if-no-files-found: error
 
@@ -63,18 +94,18 @@ jobs:
           test -n "$version"
           tag="v${version}.${GITHUB_RUN_NUMBER}"
           mkdir -p release
-          cp app/build/outputs/apk/stable/nativeTest/*.apk "release/CloudStream-${version}.apk"
+          cp app/build/outputs/apk/stable/nativeTest/*.apk "release/e-cloudstream-${version}.apk"
           (cd release && sha256sum *.apk > SHA256SUMS.txt)
           cat > release-notes.md <<'EOF'
-          Unofficial Eimon fork — not an official CloudStream release.
+          e-cloudstream — an independent, unofficial CloudStream fork directed by @mohamedyassine-benmiled. Versions no longer use the -eimon suffix.
 
           Cloud series-page progress and native Watching – New Episodes require AniKoto v3. Earlier same-season/same-edition episodes are inferred watched without importing them into local history; the saved episode resumes at its cloud timestamp. Future episode spoilers can be shown/hidden through episode options. New Episodes launches the latest eligible same-edition episode at zero. Older extensions and stock-host fallback remain supported. Android APK/build and automated tests passed; signed-in Android/TV acceptance testing is still pending.
 
           Account Continue Watching now appears only inside its owning provider's normal Home rows, retaining progress and native episode/timestamp resume. Only the maintainer's compatible AniKoto / AniKoto Account extensions currently support this feature; other extensions are unchanged. No extension update is needed for row placement.
 
-          APK: separate com.lagradost.cloudstream3.eimon package, experimental native resume enabled, debug-signed. CI debug keys may differ between builds; preserve app data before changing installations. Check SHA256SUMS.txt before installation.
+          APK: separate com.lagradost.cloudstream3.eimon package, experimental native resume enabled, signed with the persistent Eimon key. Future releases use the same signing identity for in-place updates. Older temporary-debug-key installations need a one-time backup/reinstall unless their original key is available. Back up before uninstalling; saved logins may need to be entered again. Check SHA256SUMS.txt before installation.
           EOF
-          gh release create "$tag" release/*.apk release/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "CloudStream ${version} (build ${GITHUB_RUN_NUMBER})" --notes-file release-notes.md --prerelease
+          gh release create "$tag" release/*.apk release/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "e-cloudstream ${version} (build ${GITHUB_RUN_NUMBER})" --notes-file release-notes.md --prerelease
 
       - name: Upload test reports
         if: always()
@@ -82,3 +113,7 @@ jobs:
         with:
           name: native-test-reports
           path: app/build/reports/tests/
+
+      - name: Remove signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/eimon-android-release.p12"

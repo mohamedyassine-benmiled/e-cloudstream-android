@@ -17,6 +17,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.PreviewLightDark
 import com.lagradost.cloudstream3.APIHolder
 import com.lagradost.cloudstream3.AllLanguagesName
+import com.lagradost.cloudstream3.BuildConfig
 import com.lagradost.cloudstream3.CloudStreamApp
 import com.lagradost.cloudstream3.CommonActivity.activity
 import com.lagradost.cloudstream3.CommonActivity.showToast
@@ -246,10 +247,10 @@ object SettingsGeneralScreen : SearchableSettings {
                 preferenceItems = persistentListOf(
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(R.string.github),
-                        subtitle = "https://github.com/recloudstream/cloudstream",
+                        subtitle = if (BuildConfig.NATIVE_EXTENSION_RESUME) "https://github.com/mohamedyassine-benmiled/e-cloudstream-android" else "https://github.com/recloudstream/cloudstream",
                         icon = painterResource(R.drawable.ic_github_logo),
                         onClick = {
-                            CloudStreamApp.openBrowser("https://github.com/recloudstream/cloudstream")
+                            CloudStreamApp.openBrowser(if (BuildConfig.NATIVE_EXTENSION_RESUME) "https://github.com/mohamedyassine-benmiled/e-cloudstream-android" else "https://github.com/recloudstream/cloudstream")
                         }
                     ),
                     Preference.PreferenceItem.TextPreference(

@@ -85,6 +85,17 @@ android {
     }
 
     signingConfigs {
+        // Only the Eimon nativeTest variant uses this persistent release identity.
+        // Local builds without these variables retain their usual debug signing.
+        if (System.getenv("EIMON_SIGNING_STORE_FILE") != null) {
+            create("eimon") {
+                storeFile = file(requireNotNull(System.getenv("EIMON_SIGNING_STORE_FILE")))
+                storePassword = requireNotNull(System.getenv("EIMON_SIGNING_STORE_PASSWORD"))
+                keyAlias = requireNotNull(System.getenv("EIMON_SIGNING_KEY_ALIAS"))
+                keyPassword = requireNotNull(System.getenv("EIMON_SIGNING_KEY_PASSWORD"))
+                storeType = "PKCS12"
+            }
+        }
         // We just use SIGNING_KEY_ALIAS here since it won't change
         // so won't kill the configuration cache.
         if (System.getenv("SIGNING_KEY_ALIAS") != null) {
@@ -165,10 +176,10 @@ android {
         create("nativeTest") {
             initWith(getByName("debug"))
             applicationIdSuffix = ".eimon"
-            versionNameSuffix = "-eimon.2"
-            signingConfig = signingConfigs.getByName("debug")
+            versionNameSuffix = ""
+            signingConfig = signingConfigs.findByName("eimon") ?: signingConfigs.getByName("debug")
             matchingFallbacks += listOf("debug")
-            manifestPlaceholders["app_label"] = "Eimon Cloudstream Test"
+            manifestPlaceholders["app_label"] = "e-cloudstream"
             buildConfigField("boolean", "NATIVE_EXTENSION_RESUME", "true")
         }
     }
