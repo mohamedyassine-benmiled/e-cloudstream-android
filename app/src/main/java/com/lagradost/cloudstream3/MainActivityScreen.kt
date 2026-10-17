@@ -63,12 +63,13 @@ object MainActivityScreen : Screen {
                 remotePrereleaseTag = APK_PRERELEASE,
                 remoteContentType = APK_CONTENT_TYPE,
                 versionName = BuildConfig.VERSION_NAME,
-                isPrerelease = BuildConfig.FLAVOR == "prerelease",
-                isDebug = BuildConfig.DEBUG,
+                isPrerelease = BuildConfig.NATIVE_EXTENSION_RESUME || BuildConfig.FLAVOR == "prerelease",
+                isDebug = BuildConfig.DEBUG && !BuildConfig.NATIVE_EXTENSION_RESUME,
                 buildSha = activity.currentCommitHash(),
                 settings = settings,
                 updater = ApkUpdater,
                 repository = GithubReleases,
+                versionCode = if (BuildConfig.NATIVE_EXTENSION_RESUME) BuildConfig.VERSION_CODE.toLong() else null,
             ).apply {
                 /** Only search once per session when not in safe mode */
                 if (!hasSearchedForUpdate && !PluginManager.isSafeMode()) {

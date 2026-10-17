@@ -42,8 +42,8 @@ object GithubReleases : GithubRepository {
         @JsonProperty("object") @SerialName("object") val githubObject: GithubObject,
     )
 
-    const val APK_USERNAME = "recloudstream"
-    const val APK_REPOSITORY = "cloudstream"
+    const val APK_USERNAME = ForkUpdates.OWNER
+    const val APK_REPOSITORY = ForkUpdates.REPOSITORY
     const val APK_PRERELEASE = "pre-release"
     const val APK_CONTENT_TYPE = "application/vnd.android.package-archive"
 
@@ -69,6 +69,9 @@ object GithubReleases : GithubRepository {
         prereleaseTag: String,
         contentType: String,
     ): GithubFile {
+        if (userName == ForkUpdates.OWNER && repository == ForkUpdates.REPOSITORY) {
+            return ForkUpdates.getRelease()
+        }
         val latestReleaseUrl = if (prerelease) {
             // Find the release object
             // https://docs.github.com/en/rest/releases/releases?apiVersion=2026-03-10#get-a-release-by-tag-name

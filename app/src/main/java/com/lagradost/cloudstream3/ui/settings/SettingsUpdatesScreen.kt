@@ -107,7 +107,7 @@ object SettingsUpdatesScreen : SearchableSettings {
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(R.string.install_prerelease),
                         icon = painterResource(R.drawable.mobile_code_24px),
-                        enabled = BuildConfig.FLAVOR == "stable",
+                        enabled = BuildConfig.FLAVOR == "stable" && !BuildConfig.NATIVE_EXTENSION_RESUME,
                         onClick = {
                             activity?.installPreReleaseIfNeeded()
                         }

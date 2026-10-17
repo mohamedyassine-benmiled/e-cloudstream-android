@@ -21,6 +21,10 @@ import com.lagradost.cloudstream3.app
 import com.lagradost.cloudstream3.mvvm.logError
 import com.lagradost.cloudstream3.mvvm.safe
 import com.lagradost.cloudstream3.services.PackageInstallerService
+import com.lagradost.cloudstream3.ui.settings.ForkUpdates
+import com.lagradost.cloudstream3.ui.settings.ApkUpdater
+import com.lagradost.cloudstream4.AppSettings
+import com.lagradost.cloudstream4.viewmodels.DigestPair
 import com.lagradost.cloudstream3.utils.AppContextUtils.setDefaultFocus
 import com.lagradost.cloudstream3.utils.AppUtils.parseJson
 import com.lagradost.cloudstream3.utils.Coroutines.ioSafe
@@ -38,8 +42,8 @@ import java.io.IOException
 import java.io.InputStreamReader
 
 object InAppUpdater {
-    private const val GITHUB_USER_NAME = "recloudstream"
-    private const val GITHUB_REPO = "cloudstream"
+    private const val GITHUB_USER_NAME = ForkUpdates.OWNER
+    private const val GITHUB_REPO = ForkUpdates.REPOSITORY
 
     private const val PRERELEASE_PACKAGE_NAME = "com.lagradost.cloudstream3.prerelease"
     private const val LOG_TAG = "InAppUpdater"
@@ -86,6 +90,11 @@ object InAppUpdater {
     private suspend fun Activity.getAppUpdate(installPrerelease: Boolean): Update {
         return try {
             when {
+                BuildConfig.NATIVE_EXTENSION_RESUME -> {
+                    val file = ForkUpdates.getRelease()
+                    Update(file.versionCode?.let { it > BuildConfig.VERSION_CODE } == true,
+                        file.downloadUrl, file.displayName, file.changeLog, file.nodeId)
+                }
                 // No updates on debug version
                 BuildConfig.DEBUG -> Update(false, null, null, null, null)
                 BuildConfig.FLAVOR == "prerelease" || installPrerelease -> getPreReleaseUpdate()
@@ -228,6 +237,10 @@ object InAppUpdater {
     }
 
     fun Activity.installPreReleaseIfNeeded() = ioSafe {
+        if (BuildConfig.NATIVE_EXTENSION_RESUME) {
+            runAutoUpdate(checkAutoUpdate = false)
+            return@ioSafe
+        }
         val isInstalled = try {
             packageManager.getPackageInfo(PRERELEASE_PACKAGE_NAME, 0)
             true
@@ -294,6 +307,20 @@ object InAppUpdater {
                 builder.setMessage(sanitizedChangelog)
                 builder.apply {
                     setPositiveButton(R.string.update) { _, _ ->
+                        if (BuildConfig.NATIVE_EXTENSION_RESUME) {
+                            ioSafe {
+                                try {
+                                    val file = ForkUpdates.getRelease()
+                                    require(file.versionCode?.let { it > BuildConfig.VERSION_CODE } == true)
+                                    ApkUpdater.update(AppSettings(this@runAutoUpdate), file.downloadUrl,
+                                        DigestPair.parse(file.digest)) { _, _ -> }
+                                } catch (e: Exception) {
+                                    logError(e)
+                                    runOnUiThread { showToast(R.string.download_failed, Toast.LENGTH_LONG) }
+                                }
+                            }
+                            return@setPositiveButton
+                        }
                         // Forcefully start any delayed installations
                         if (ApkInstaller.delayedInstaller?.startInstallation() == true) return@setPositiveButton
 

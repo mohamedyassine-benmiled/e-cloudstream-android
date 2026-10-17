@@ -12,6 +12,8 @@ Use [this repository's Releases](https://github.com/mohamedyassine-benmiled/e-cl
 
 New APKs use one persistent private signing key stored through GitHub Actions secrets. Future releases can update installations signed with that same key. **Older temporary-debug-key installations cannot be updated with the new key:** first export/back up supported app data, confirm the backup is usable, then perform a one-time reinstall. Saved extension sessions may not be included in backups; expect to sign in again. Do not uninstall before protecting your data. See [Android signing](docs/ANDROID_SIGNING.md).
 
+Automatic and manual update checks use **this fork's repository**, including its prereleases, never the official app. Releases publish an `update.json` manifest with the package, version code, signing identity and APK SHA-256. Only a higher version code is offered, even if the displayed version is unchanged. Downloads must belong to this repository and pass SHA-256 verification; Android still enforces APK signing compatibility. Old temporary-key releases without a manifest are ignored. “Install official prerelease” is disabled in this fork. Update checks notify you; installation still follows Android's installer/permission rules.
+
 The APK remains an experimental `stableNativeTest` build. Automated tests and APK assembly are verified; signed-in phone/TV acceptance for cloud details remains pending. The app includes no content sources: install extensions separately.
 
 ## Fork features

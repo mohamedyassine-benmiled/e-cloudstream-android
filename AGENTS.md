@@ -28,6 +28,7 @@
 - Never expose cookies, credentials, account identifiers, response bodies or raw preference backups. Do not replay old sessions or disturb an existing phone login. Session traces do not prove an opaque server's invalidation policy.
 - Follow `docs/ANDROID_SIGNING.md`: published APKs must use the persistent private signing identity. Never generate a new key for a normal update, silently fall back to a debug key in CI, commit secret-value files, or cache signing credentials. Signing keys stay outside source/artifacts; configuration caching is disabled for signed release builds.
 - Increment versionCode for new APK updates and retain the package identity. Switching from old ephemeral keys requires a one-time data-protected reinstall; never uninstall without permission and a usable backup. Saved extension sessions may not be covered by app export.
+- Both manual/automatic updater entry points must stay on this fork's repository. Published `update.json` binds package, versionCode, signing identity, APK name and SHA-256; reject old/missing manifests, foreign downloads and non-increasing version codes. Keep Android's signing checks and explicit installation permissions; do not route the fork's prerelease button to official CloudStream.
 - Do not install/publish/delete releases/change GitHub settings without task authorization. The `native-test-apk.yml` workflow publishes unofficial prereleases from `main`; upstream secret-dependent release workflows are not this fork's release path.
 
 ## Validation and collaboration

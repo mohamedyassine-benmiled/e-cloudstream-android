@@ -54,7 +54,13 @@ data class GithubFile(
     val tagName: String,
     /** Unique node id */
     val nodeId: String,
+    /** Optional monotonic Android code for forks with versioned release manifests. */
+    val versionCode: Long? = null,
 )
+
+/** Android updates are ordered by versionCode, not filenames, tags or commit differences. */
+fun GithubFile.isNewerThan(installedVersionCode: Long): Boolean =
+    versionCode?.let { it > installedVersionCode } == true
 
 @Immutable
 sealed class GithubAction {
@@ -162,6 +168,7 @@ class GithubViewModel(
     val settings: AppSettings,
     val updater: AppUpdater,
     val repository: GithubRepository,
+    val versionCode: Long? = null,
 ) : ViewModel(), StateContainer<GithubState> by DefaultStateContainer(GithubState()),
     ActionHandler<GithubAction> {
     private val updateDispatcher = SingleActiveQuery(Dispatchers.IO)
@@ -264,7 +271,7 @@ class GithubViewModel(
         // If on pre-release check if the sha matches, as we do not look at the version
         var oldSha: String? = null
         var newSha: String? = null
-        if (prerelease) {
+        if (prerelease && versionCode == null) {
             val sha = repository.getSha(
                 tag = remotePrereleaseTag,
                 userName = remoteUserName,
@@ -291,7 +298,8 @@ class GithubViewModel(
         )
 
         // If on stable, only check that the display name matches
-        if (!prerelease && release.displayName == versionName) {
+        if ((versionCode != null && !release.isNewerThan(versionCode)) ||
+            (versionCode == null && !prerelease && release.displayName == versionName)) {
             updateState {
                 copy(dialog = baseDialog.copy(state = GithubUpdateDialogState.NoUpdateFound))
             }

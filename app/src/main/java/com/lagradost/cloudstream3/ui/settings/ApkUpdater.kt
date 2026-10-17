@@ -29,7 +29,7 @@ import java.security.DigestException
 import java.security.MessageDigest
 
 object ApkUpdater : AppUpdater {
-    private const val APP_UPDATE_NAME = "CloudStream"
+    private const val APP_UPDATE_NAME = "e-cloudstream"
     private const val APP_UPDATE_SUFFIX = "apk"
 
     @Throws
@@ -39,6 +39,12 @@ object ApkUpdater : AppUpdater {
         digest: DigestPair?,
         downloadProgress: (Long, Long?) -> Unit
     ) {
+        if (BuildConfig.NATIVE_EXTENSION_RESUME) {
+            require(ForkUpdates.trustedDownload(url)) { "Update must come from the e-cloudstream Android repository" }
+            require(digest?.algorithm.equals("sha256", ignoreCase = true) && digest?.digest?.size == 32) {
+                "A SHA-256 digest is required for e-cloudstream updates"
+            }
+        }
         val activity = CommonActivity.activity ?: throw ErrorLoadingException("No activity found")
         clearOldFiles(activity)
 
@@ -91,6 +97,10 @@ object ApkUpdater : AppUpdater {
         try {
             val installParams =
                 PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
+
+            if (BuildConfig.NATIVE_EXTENSION_RESUME) {
+                installParams.setAppPackageName(BuildConfig.APPLICATION_ID)
+            }
 
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 installParams.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_NOT_REQUIRED)
@@ -158,7 +168,11 @@ object ApkUpdater : AppUpdater {
         downloadProgress: (Long, Long?) -> Unit,
         digest: DigestPair?,
     ) = withContext(Dispatchers.IO) {
-        val md = digest?.algorithm?.let { digestAlgorithm ->
+        val strict = BuildConfig.NATIVE_EXTENSION_RESUME
+        val md = if (strict) {
+            require(digest?.algorithm.equals("sha256", ignoreCase = true) && digest?.digest?.size == 32)
+            MessageDigest.getInstance("SHA-256")
+        } else digest?.algorithm?.let { digestAlgorithm ->
             safe {
                 MessageDigest.getInstance(digestAlgorithm)
             }
@@ -173,7 +187,7 @@ object ApkUpdater : AppUpdater {
         ) {
             writeStream.write(buffer, 0, read)
 
-            safe {
+            if (strict) md!!.update(buffer, 0, read) else safe {
                 md?.update(buffer, 0, read)
             }
 
@@ -183,7 +197,7 @@ object ApkUpdater : AppUpdater {
         }
         writeStream.flush()
 
-        val check = safe { md?.digest() }
+        val check = if (strict) md!!.digest() else safe { md?.digest() }
         if (check != null && !check.contentEquals(digest?.digest)) {
             throw DigestException("Mismatched digest on transfer ${digest?.algorithm} : ${check.toHexString()} / ${digest?.digest?.toHexString()}")
         }
@@ -208,6 +222,19 @@ object ApkUpdater : AppUpdater {
     }
 
     fun openApk(context: Context, file: File) {
+        if (BuildConfig.NATIVE_EXTENSION_RESUME) {
+            @Suppress("DEPRECATION")
+            val info = context.packageManager.getPackageArchiveInfo(file.absolutePath,
+                if (Build.VERSION.SDK_INT >= 28) android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
+                else android.content.pm.PackageManager.GET_SIGNATURES)
+            require(info?.packageName == BuildConfig.APPLICATION_ID) { "APK is not e-cloudstream" }
+            @Suppress("DEPRECATION")
+            val signatures = if (Build.VERSION.SDK_INT >= 28) info?.signingInfo?.apkContentsSigners else info?.signatures
+            require(signatures?.size == 1 && MessageDigest.getInstance("SHA-256")
+                .digest(signatures[0].toByteArray()).toHexString() == ForkUpdates.CERTIFICATE_SHA256) {
+                "APK is not signed with the persistent e-cloudstream key"
+            }
+        }
         val contentUri = FileProvider.getUriForFile(
             context, BuildConfig.APPLICATION_ID + ".provider", file
         )

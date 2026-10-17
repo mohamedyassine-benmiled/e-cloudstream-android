@@ -95,7 +95,22 @@ jobs:
           tag="v${version}.${GITHUB_RUN_NUMBER}"
           mkdir -p release
           cp app/build/outputs/apk/stable/nativeTest/*.apk "release/e-cloudstream-${version}.apk"
-          (cd release && sha256sum *.apk > SHA256SUMS.txt)
+          python3 - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          metadata = json.loads(Path("app/build/outputs/apk/stable/nativeTest/output-metadata.json").read_text())
+          apk = next(Path("release").glob("*.apk"))
+          manifest = {
+              "applicationId": metadata["applicationId"],
+              "versionCode": metadata["elements"][0]["versionCode"],
+              "versionName": metadata["elements"][0]["versionName"],
+              "apkName": apk.name,
+              "apkSha256": hashlib.sha256(apk.read_bytes()).hexdigest(),
+              "signingCertificateSha256": Path("docs/android-signing-certificate.sha256").read_text().strip(),
+          }
+          Path("release/update.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          PY
+          (cd release && sha256sum *.apk update.json > SHA256SUMS.txt)
           cat > release-notes.md <<'EOF'
           e-cloudstream — an independent, unofficial CloudStream fork directed by @mohamedyassine-benmiled. Versions no longer use the -eimon suffix.
 
@@ -105,7 +120,7 @@ jobs:
 
           APK: separate com.lagradost.cloudstream3.eimon package, experimental native resume enabled, signed with the persistent Eimon key. Future releases use the same signing identity for in-place updates. Older temporary-debug-key installations need a one-time backup/reinstall unless their original key is available. Back up before uninstalling; saved logins may need to be entered again. Check SHA256SUMS.txt before installation.
           EOF
-          gh release create "$tag" release/*.apk release/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "e-cloudstream ${version} (build ${GITHUB_RUN_NUMBER})" --notes-file release-notes.md --prerelease
+          gh release create "$tag" release/*.apk release/update.json release/SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "e-cloudstream ${version} (build ${GITHUB_RUN_NUMBER})" --notes-file release-notes.md --prerelease
 
       - name: Upload test reports
         if: always()
