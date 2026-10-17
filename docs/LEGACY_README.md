@@ -13,7 +13,7 @@ This repository is an **unofficial fork** of [recloudstream/cloudstream](https:/
 
 ### Eimon downloads
 
-**4.8.0-eimon.2 + AniKoto v3:** cloud episode progress now drives series details and built-in Resume, with earlier same-season/same-audio episodes inferred watched in memory. Future episode spoilers are hidden by default; episode options can show/hide them. Native **Watching – New Episodes** cards start the newest eligible same-edition episode at zero. Viewing these rows/pages does not import watches into local history or advance website progress. Stock/older hosts retain the ordinary row. Automated tests and APK assembly are verified; signed-in Android/TV acceptance testing remains pending.
+**4.8.0-eimon.2 + a capability-compatible extension:** cloud episode progress drives series details and built-in Resume, with earlier same-season/same-audio episodes inferred watched in memory. Future episode spoilers are hidden by default; episode options can show/hide them. Native **Watching – New Episodes** cards start the newest eligible same-edition episode at zero. Viewing these rows/pages does not import watches into local history or advance website progress. Stock/older hosts retain the ordinary row. Automated tests and APK assembly are verified; signed-in Android/TV acceptance testing remains pending.
 
 Use **[this fork's Releases](https://github.com/mohamedyassine-benmiled/eimon-cloudstream-android/releases)** for the `-eimon` APK and `SHA256SUMS.txt`. The Native test APK workflow tests and publishes a GitHub prerelease on each push to `feature/native-extension-resume`, or when manually dispatched. The APK enables native account resume and uses the separate package `com.lagradost.cloudstream3.eimon`; it does not replace the official app.
 
